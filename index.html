@@ -19,9 +19,6 @@ body{margin:0;font-family:system-ui;background:#0f172a;color:#fff;}
 .header-title span{font-size:14px;font-weight:normal;color:#94a3b8;}
 .header-actions{display:flex;gap:8px;flex-wrap:wrap;}
 .header-actions button{padding:8px 16px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:13px;}
-.print-all-btn{background:#8b5cf6;color:#fff;}
-.refresh-btn{background:#3b82f6;color:#fff;}
-.admin-btn{background:#f59e0b;color:#000;}
 
 .container{padding:12px;max-width:1200px;margin:0 auto;}
 
@@ -410,7 +407,6 @@ async function loadProjects() {
         opt.textContent = p.name;
         select.appendChild(opt);
       });
-      // If URL has ?id= parameter, select that project
       const urlParams = new URLSearchParams(window.location.search);
       const idParam = urlParams.get('id');
       if (idParam && projects.find(p => p._id === idParam)) {
@@ -422,7 +418,6 @@ async function loadProjects() {
 
     loadProject();
 
-    // Update server status
     document.getElementById('serverStatus').className = 'server-status online';
     document.getElementById('serverStatus').textContent = '✅ Online';
 
@@ -464,7 +459,6 @@ function loadProject() {
     return;
   }
 
-  // Sort panels by ID number (ascending)
   const sortedPanels = [...project.panels].sort((a, b) => {
     const numA = parseInt(String(a.id).replace(/[^0-9]/g, '')) || 0;
     const numB = parseInt(String(b.id).replace(/[^0-9]/g, '')) || 0;
@@ -473,7 +467,6 @@ function loadProject() {
 
   let html = '';
   let pending = 0, cutting = 0, dispatch = 0;
-  let totalPrice = 0;
   let matchedCount = 0;
 
   sortedPanels.forEach(p => {
@@ -485,14 +478,11 @@ function loadProject() {
     if (p.status === 'pending') pending++;
     if (p.status === 'cutting') cutting++;
     if (p.status === 'dispatched') dispatch++;
-    totalPrice += (p.price || 0);
     if (p.matched) matchedCount++;
 
     const item = p.items[0];
     const display = item.seq ? `${item.seq}/${p.totalGroupQty || 1}` : '1';
     const stickerAssigned = p.stickerFileName ? '✅ Assigned' : '❌ No Sticker';
-
-    // Extract number for display
     const panelNum = parseInt(String(p.id).replace(/[^0-9]/g, '')) || '';
 
     html += `
@@ -543,14 +533,12 @@ function loadProject() {
 
   document.getElementById('progressText').innerText = percent + '% Done';
 
-  // Update project info
   document.getElementById('pName').innerText = project.name;
   document.getElementById('pCount').innerText = total;
   
   const stickerCount = project.panels.filter(p => p.stickerFileName).length;
   document.getElementById('pStickers').innerText = stickerCount;
   
-  // Calculate matched count
   const matchedTotal = project.panels.filter(p => p.matched).length;
   document.getElementById('pMatched').innerText = matchedTotal;
 
@@ -601,7 +589,6 @@ async function updateStatus(panelId, status) {
 // TOAST NOTIFICATION
 // ==========================================
 function showToast(msg, type = "success") {
-  // Remove existing toast if any
   const existing = document.getElementById('custom-toast');
   if (existing) existing.remove();
   
@@ -611,10 +598,8 @@ function showToast(msg, type = "success") {
   toast.textContent = msg;
   document.body.appendChild(toast);
   
-  // Trigger show
   setTimeout(() => toast.classList.add('show'), 10);
   
-  // Auto hide after 4 seconds
   setTimeout(() => {
     toast.classList.remove('show');
     setTimeout(() => toast.remove(), 500);
@@ -622,7 +607,7 @@ function showToast(msg, type = "success") {
 }
 
 // ==========================================
-// SEND STICKER - DOWNLOAD THEN OPEN
+// SEND STICKER - ONLY DOWNLOAD, NO AUTO-OPEN
 // ==========================================
 async function sendSticker(panelId) {
   const projectId = document.getElementById('projectSelect').value;
@@ -631,7 +616,6 @@ async function sendSticker(panelId) {
     return;
   }
 
-  // Find the panel in the current project
   const project = projects.find(p => p._id === projectId);
   if (!project) {
     alert('Project not found');
@@ -652,8 +636,7 @@ async function sendSticker(panelId) {
   const cleanId = panelId.replace('#', '').trim();
   const stickerUrl = API + '/api/projects/' + projectId + '/sticker/' + encodeURIComponent(cleanId);
 
-  // Confirm before sending
-  const confirmMsg = `📤 Send sticker for Panel ${panelId}?\nSticker Page: ${panel.stickerPage || 'N/A'}\n\nClick OK to download and open the sticker.`;
+  const confirmMsg = `📤 Send sticker for Panel ${panelId}?\nSticker Page: ${panel.stickerPage || 'N/A'}\n\nClick OK to download the sticker.`;
   if (!confirm(confirmMsg)) {
     return;
   }
@@ -663,7 +646,7 @@ async function sendSticker(panelId) {
     const buttons = document.querySelectorAll('.send-btn');
     let targetBtn = null;
     buttons.forEach(btn => {
-      if (btn.textContent.trim() === '📤 Send' || btn.textContent.trim() === '📤 Sending...') {
+      if (btn.textContent.trim() === '📤 Send') {
         targetBtn = btn;
       }
     });
@@ -706,53 +689,33 @@ async function sendSticker(panelId) {
       URL.revokeObjectURL(downloadUrl);
     }, 100);
 
-    // Show success message
-    msg.innerText = `✅ Sticker for Panel ${panelId} downloaded! Opening...`;
-    msg.style.background = '#065f46';
-    msg.style.color = '#a7f3d0';
-
     // Play sound
     clickSound.play();
     if (navigator.vibrate) navigator.vibrate(100);
 
-    // Update status if pending
-    if (panel.status === 'pending') {
-      await updateStatus(panelId, 'cutting');
+    // Show success message
+    msg.innerText = `✅ Sticker for Panel ${panelId} downloaded successfully!`;
+    msg.style.background = '#065f46';
+    msg.style.color = '#a7f3d0';
+
+    // Show toast notification
+    showToast(`✅ PDF Downloaded. Open from Downloads and share to Thermal Print.`, 'success');
+
+    // Reset button
+    if (targetBtn) {
+      targetBtn.textContent = '📤 Send';
+      targetBtn.disabled = false;
     }
 
+    // Clear status message after 5 seconds
     setTimeout(() => {
-  showToast(
-    `✅ PDF Downloaded. Open from Downloads and share to ThermalPrint.`,
-    'success'
-  );
+      msg.className = 'success-msg';
+      msg.style.background = '';
+      msg.style.color = '';
+    }, 5000);
 
-  if (targetBtn) {
-    targetBtn.textContent = '📤 Send';
-    targetBtn.disabled = false;
-  }
-
-  setTimeout(() => loadProjects(), 1000);
-}, 500);
-      }
-      
-      showToast(`✅ Sticker for Panel ${panelId} downloaded and opened!`, 'success');
-      
-      // Reset button
-      if (targetBtn) {
-        targetBtn.textContent = '📤 Send';
-        targetBtn.disabled = false;
-      }
-      
-      // Clear status message after 5 seconds
-      setTimeout(() => {
-        msg.className = 'success-msg';
-        msg.style.background = '';
-        msg.style.color = '';
-      }, 5000);
-      
-      // Refresh project list
-      setTimeout(() => loadProjects(), 2000);
-    }, 500);
+    // Refresh project list after a moment
+    setTimeout(() => loadProjects(), 2000);
 
   } catch (err) {
     console.error('❌ Send sticker error:', err);
@@ -789,7 +752,6 @@ function printSingleSticker(panelId) {
     return;
   }
 
-  // Find the panel in the current project to verify it exists
   const project = projects.find(p => p._id === projectId);
   if (!project) {
     alert('Project not found');
@@ -810,11 +772,7 @@ function printSingleSticker(panelId) {
   const cleanId = panelId.replace('#', '').trim();
   const url = API + '/api/projects/' + projectId + '/sticker/' + encodeURIComponent(cleanId);
   
-  console.log('🖨️ Opening sticker for panel:', panelId);
-  console.log('   📄 Sticker Page:', panel.stickerPage);
-  console.log('   📁 File:', panel.stickerFileName);
-  console.log('   🔗 URL:', url);
-  
+  // Open in new window for printing
   const win = window.open(url, '_blank');
   if (!win) {
     const link = document.createElement('a');
