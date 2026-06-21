@@ -720,19 +720,19 @@ async function sendSticker(panelId) {
       await updateStatus(panelId, 'cutting');
     }
 
-    // Open the sticker in a new window/tab (after download)
     setTimeout(() => {
-      // Open in new window
-      const win = window.open(stickerUrl, '_blank');
-      if (!win) {
-        // If popup blocked, use fallback
-        const fallbackLink = document.createElement('a');
-        fallbackLink.href = stickerUrl;
-        fallbackLink.target = '_blank';
-        fallbackLink.rel = 'noopener noreferrer';
-        document.body.appendChild(fallbackLink);
-        fallbackLink.click();
-        document.body.removeChild(fallbackLink);
+  showToast(
+    `✅ PDF Downloaded. Open from Downloads and share to ThermalPrint.`,
+    'success'
+  );
+
+  if (targetBtn) {
+    targetBtn.textContent = '📤 Send';
+    targetBtn.disabled = false;
+  }
+
+  setTimeout(() => loadProjects(), 1000);
+}, 500);
       }
       
       showToast(`✅ Sticker for Panel ${panelId} downloaded and opened!`, 'success');
